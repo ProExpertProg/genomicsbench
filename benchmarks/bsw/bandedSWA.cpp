@@ -27,7 +27,7 @@
 Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>;
 *****************************************************************************************/
 
-#include "omp.h" 
+// OpenMP removed: the sort loops below run serially (see ../cilk_util.h)
 #include "bandedSWA.h"
 #ifdef VTUNE_ANALYSIS
 #include <ittnotify.h> 
@@ -490,13 +490,13 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
     int16_t *hist = (int16_t *)_mm_malloc((MAX_SEQ_LEN8 + 32) * numThreads *
                                           sizeof(int16_t), 64);
 
-#pragma omp parallel num_threads(numThreads)
+// (serial: one thread per BandedPairWiseSW, as with the original num_threads(1))
     {
-        int32_t tid = omp_get_thread_num();
+        int32_t tid = 0;
         SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
         int16_t *myHist = hist + tid * (MAX_SEQ_LEN8 + 32);
 
-#pragma omp for
+// (serial sort-block loop)
         for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
         {
             int32_t first, last;
@@ -517,7 +517,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 // #pragma omp parallel num_threads(numThreads)
     {
         int32_t i;
-        uint16_t tid = omp_get_thread_num();
+        uint16_t tid = 0;
         // uint16_t tid = 0;
         uint8_t *mySeq1SoA = NULL;
         mySeq1SoA = seq1SoA + tid * MAX_SEQ_LEN8 * SIMD_WIDTH8;
@@ -687,12 +687,12 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 #if SORT_PAIRS      // disbaled in bwa-mem2 (only used in separate benchmark bsw code)
     {
     // Sort the sequences according to increasing order of id
-#pragma omp parallel num_threads(numThreads)
+// (serial: one thread per BandedPairWiseSW, as with the original num_threads(1))
     {
-        int32_t tid = omp_get_thread_num();
+        int32_t tid = 0;
         SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
 
-#pragma omp for
+// (serial sort-block loop)
         for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
         {
             int32_t first, last;
@@ -1188,14 +1188,14 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
                                           sizeof(int16_t), 64);
     // int16_t *histb = (int16_t *)_mm_malloc((MAX_SEQ_LEN16 + 16) * numThreads *
     //                                        sizeof(int16_t), 64);
-#pragma omp parallel num_threads(numThreads)
+// (serial: one thread per BandedPairWiseSW, as with the original num_threads(1))
     {
-        int32_t tid = omp_get_thread_num();
+        int32_t tid = 0;
         SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
         int16_t *myHist = hist + tid * (MAX_SEQ_LEN16 + 16);
         // int16_t *myHistb = histb + tid * (MAX_SEQ_LEN16 + 16);
 
-#pragma omp for
+// (serial sort-block loop)
         for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
         {
             int32_t first, last;
@@ -1217,7 +1217,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 // #pragma omp parallel num_threads(numThreads)
     {
         int32_t i;
-        // uint16_t tid = omp_get_thread_num();
+        // uint16_t tid = 0;
         uint16_t tid = 0; 
         uint16_t *mySeq1SoA = seq1SoA + tid * MAX_SEQ_LEN16 * SIMD_WIDTH16;
         uint16_t *mySeq2SoA = seq2SoA + tid * MAX_SEQ_LEN16 * SIMD_WIDTH16;
@@ -1396,12 +1396,12 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 #if SORT_PAIRS      // disbaled in bwa-mem2 (only used in separate benchmark bsw code)
     {
     // Sort the sequences according to increasing order of id
-#pragma omp parallel num_threads(numThreads)
+// (serial: one thread per BandedPairWiseSW, as with the original num_threads(1))
     {
-        int32_t tid = omp_get_thread_num();
+        int32_t tid = 0;
         SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
 
-#pragma omp for
+// (serial sort-block loop)
         for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
         {
             int32_t first, last;
@@ -2046,14 +2046,14 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
                                           sizeof(int16_t), 64);
     int16_t *histb = (int16_t *)_mm_malloc((MAX_SEQ_LEN8 + 32) * numThreads *
                                            sizeof(int16_t), 64);
-#pragma omp parallel num_threads(numThreads)
+// (serial: one thread per BandedPairWiseSW, as with the original num_threads(1))
     {
-        int32_t tid = omp_get_thread_num();
+        int32_t tid = 0;
         SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
         int16_t *myHist = hist + tid * (MAX_SEQ_LEN8 + 32);
         int16_t *myHistb = histb + tid * (MAX_SEQ_LEN8 + 32);
 
-#pragma omp for
+// (serial sort-block loop)
         for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
         {
             int32_t first, last;
@@ -2243,12 +2243,12 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 #if SORT_PAIRS       // disbaled in bwa-mem2 (only used in separate benchmark bsw code)
     {
     // Sort the sequences according to increasing order of id
-#pragma omp parallel num_threads(numThreads)
+// (serial: one thread per BandedPairWiseSW, as with the original num_threads(1))
     {
-        int32_t tid = omp_get_thread_num();
+        int32_t tid = 0;
         SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
 
-#pragma omp for
+// (serial sort-block loop)
         for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
         {
             int32_t first, last;
@@ -2738,13 +2738,13 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
                                                sizeof(SeqPair), 64);
     int16_t *hist = (int16_t *)_mm_malloc((MAX_SEQ_LEN16 + 32) * numThreads *
                                           sizeof(int16_t), 64);
-#pragma omp parallel num_threads(numThreads)
+// (serial: one thread per BandedPairWiseSW, as with the original num_threads(1))
     {
-        int32_t tid = omp_get_thread_num();
+        int32_t tid = 0;
         SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
         int16_t *myHist = hist + tid * (MAX_SEQ_LEN16 + 32);
 
-#pragma omp for
+// (serial sort-block loop)
         for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
         {
             int32_t first, last;
@@ -2765,7 +2765,7 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 //#pragma omp parallel num_threads(numThreads)
     {
         int32_t i;
-        uint16_t tid = 0; //omp_get_thread_num();
+        uint16_t tid = 0; //0;
         uint16_t *mySeq1SoA = seq1SoA + tid * MAX_SEQ_LEN16 * SIMD_WIDTH16;
         uint16_t *mySeq2SoA = seq2SoA + tid * MAX_SEQ_LEN16 * SIMD_WIDTH16;
         uint8_t *seq1;
@@ -2937,12 +2937,12 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 #if SORT_PAIRS       // disbaled in bwa-mem2 (only used in separate benchmark bsw code)
     {
     // Sort the sequences according to increasing order of id
-#pragma omp parallel num_threads(numThreads)
+// (serial: one thread per BandedPairWiseSW, as with the original num_threads(1))
     {
-        int32_t tid = omp_get_thread_num();
+        int32_t tid = 0;
         SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
 
-#pragma omp for
+// (serial sort-block loop)
         for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
         {
             int32_t first, last;
@@ -3534,14 +3534,14 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
                                           sizeof(int16_t), 64);
     int16_t *histb = (int16_t *)_mm_malloc((MAX_SEQ_LEN16 + 16) * numThreads *
                                            sizeof(int16_t), 64);
-#pragma omp parallel num_threads(numThreads)
+// (serial: one thread per BandedPairWiseSW, as with the original num_threads(1))
     {
         int32_t tid = 0;
         SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
         int16_t *myHist = hist + tid * (MAX_SEQ_LEN16 + 16);
         int16_t *myHistb = histb + tid * (MAX_SEQ_LEN16 + 16);
 
-#pragma omp for
+// (serial sort-block loop)
         for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
         {
             int32_t first, last;
@@ -3727,12 +3727,12 @@ void BandedPairWiseSW::smithWatermanBatchWrapper16(SeqPair *pairArray,
 #if SORT_PAIRS       // disbaled in bwa-mem2 (only used in separate benchmark bsw code)
     {
     // Sort the sequences according to increasing order of id
-#pragma omp parallel num_threads(numThreads)
+// (serial: one thread per BandedPairWiseSW, as with the original num_threads(1))
     {
-        int32_t tid = omp_get_thread_num();
+        int32_t tid = 0;
         SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
 
-#pragma omp for
+// (serial sort-block loop)
         for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
         {
             int32_t first, last;
@@ -4262,14 +4262,14 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
                                           sizeof(int16_t), 64);
     int16_t *histb = (int16_t *)_mm_malloc((MAX_SEQ_LEN8 + 32) * numThreads *
                                            sizeof(int16_t), 64);
-#pragma omp parallel num_threads(numThreads)
+// (serial: one thread per BandedPairWiseSW, as with the original num_threads(1))
     {
-        int32_t tid = omp_get_thread_num();
+        int32_t tid = 0;
         SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
         int16_t *myHist = hist + tid * (MAX_SEQ_LEN8 + 32);
         int16_t *myHistb = histb + tid * (MAX_SEQ_LEN8 + 32);
 
-#pragma omp for
+// (serial sort-block loop)
         for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
         {
             int32_t first, last;
@@ -4449,12 +4449,12 @@ void BandedPairWiseSW::smithWatermanBatchWrapper8(SeqPair *pairArray,
 #if SORT_PAIRS       // disbaled in bwa-mem2 (only used in separate benchmark bsw code)
     {
     // Sort the sequences according to increasing order of id
-#pragma omp parallel num_threads(numThreads)
+// (serial: one thread per BandedPairWiseSW, as with the original num_threads(1))
     {
-        int32_t tid = omp_get_thread_num();
+        int32_t tid = 0;
         SeqPair *myTempArray = tempArray + tid * SORT_BLOCK_SIZE;
 
-#pragma omp for
+// (serial sort-block loop)
         for(ii = 0; ii < roundNumPairs; ii+=SORT_BLOCK_SIZE)
         {
             int32_t first, last;

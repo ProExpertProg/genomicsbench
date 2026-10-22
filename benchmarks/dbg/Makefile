@@ -1,9 +1,12 @@
+# OpenCilk flags; sweeps override this (see scripts/sweep-cilk.sh)
+CILK_FLAGS ?= -fopencilk
+
 CXX     = g++
 #CXX		 = icpc
 #VTUNE_HOME= /opt/intel/vtune_profiler
-LIBS = -L../../tools/htslib -lcurl -lcrypto -lz -lm -lbz2 -llzma -lpthread -ldl -fopenmp
+LIBS = -L../../tools/htslib -lcurl -lcrypto -lz -lm -lbz2 -llzma -lpthread -ldl $(CILK_FLAGS)
 INC = -I../../tools/htslib
-CXXFLAGS   = -g -Wall -O2 -fopenmp
+CXXFLAGS   = -g -Wall -O2 $(CILK_FLAGS)
 
 ifneq ($(VTUNE_HOME),)
 CXXFLAGS+= -DVTUNE_ANALYSIS=1

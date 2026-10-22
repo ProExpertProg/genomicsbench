@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include "omp.h"
+#include "../cilk_util.h"
 #include "time.h"
 #include "sys/time.h"
 #include "htslib/sam.h"
@@ -538,13 +538,7 @@ int main(int argc, char *argv[]) {
     }
     free(chr);
 
-    #pragma omp parallel num_threads(numThreads)
-    {
-        int tid = omp_get_thread_num();
-        if (tid == 0) {
-            fprintf(stderr, "Running %d batches with threads: %d\n", batches.n, numThreads);
-        }
-    }
+    fprintf(stderr, "Running %d batches with threads: %d\n", batches.n, gb_num_workers()); // thread arg is ignored (use CILK_NWORKERS)
 
     struct timeval start_time, end_time;
     double runtime = 0;
@@ -553,15 +547,12 @@ int main(int argc, char *argv[]) {
     __itt_resume();
 #endif
     // process batches in parallel
-    #pragma omp parallel num_threads(numThreads)
-    {
-        #pragma omp for schedule(dynamic, 1)
-            for (i = 0; i < batches.n; i++) {
-                batches.a[i].pileup = calculate_pileup(
-                                        batches.a[i].region_string, bam_file, num_dtypes, dtypes,
-                                        num_homop, tag_name, tag_value, keep_missing,
-                                        weibull_summation, read_group);
-            }
+    GB_LOOP_TRIPS("pileup", batches.n);
+    cilk_for (int j = 0; j < batches.n; j++) {
+        batches.a[j].pileup = calculate_pileup(
+                                batches.a[j].region_string, bam_file, num_dtypes, dtypes,
+                                num_homop, tag_name, tag_value, keep_missing,
+                                weibull_summation, read_group);
     }
 #ifdef VTUNE_ANALYSIS
     __itt_pause();

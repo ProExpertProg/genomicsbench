@@ -2,7 +2,7 @@
 #include <ctime>
 #include <cstdio>
 #include <cstdlib>
-#include "omp.h"
+#include "../../cilk_util.h"
 #include "host_kernel.h"
 #include "common.h"
 #include "minimap.h"
@@ -95,14 +95,11 @@ void chain_dp(call_t* a, return_t* ret)
 
 void host_chain_kernel(std::vector<call_t> &args, std::vector<return_t> &rets, int numThreads)
 {
-    #pragma omp parallel num_threads(numThreads)
-    {
-        #pragma omp for schedule(dynamic)
-            for (size_t batch = 0; batch < args.size(); batch++) {
-                call_t* arg = &args[batch];
-                return_t* ret = &rets[batch];
-                // fprintf(stderr, "%lld\t%f\t%d\t%d\t%d\t%d\n", arg->n, arg->avg_qspan, arg->max_dist_x, arg->max_dist_y, arg->bw, arg->n_segs);
-                chain_dp(arg, ret);
-            }
+    GB_LOOP_TRIPS("chain", args.size());
+    cilk_for (size_t batch = 0; batch < args.size(); batch++) {
+        call_t* arg = &args[batch];
+        return_t* ret = &rets[batch];
+        // fprintf(stderr, "%lld\t%f\t%d\t%d\t%d\t%d\n", arg->n, arg->avg_qspan, arg->max_dist_x, arg->max_dist_y, arg->bw, arg->n_segs);
+        chain_dp(arg, ret);
     }
 }

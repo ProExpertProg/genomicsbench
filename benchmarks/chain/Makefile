@@ -1,4 +1,7 @@
 #CXX = icpc
+# OpenCilk flags; sweeps override this (see scripts/sweep-cilk.sh)
+CILK_FLAGS ?= -fopencilk
+
 CXX = g++
 
 # path #
@@ -47,9 +50,9 @@ else ifneq ($(arch),)
 endif
 
 # flags #
-#COMPILE_FLAGS = -std=c++11 -Wall -Wextra -g -O3 -fopenmp -xAVX2 -axAVX2
+#COMPILE_FLAGS = -std=c++11 -Wall -Wextra -g -O3 $(CILK_FLAGS) -xAVX2 -axAVX2
 #VTUNE_HOME= /opt/intel/vtune_profiler
-COMPILE_FLAGS = -std=c++11 -Wall -Wextra -g -O3 -fopenmp $(ARCH_FLAGS)
+COMPILE_FLAGS = -std=c++11 -Wall -Wextra -g -O3 $(CILK_FLAGS) $(ARCH_FLAGS)
 INCLUDES = -I../../tools/minimap2
 # Space-separated pkg-config libraries used by this project
 LIBS = -L../../tools/minimap2 -lminimap2 -ldl
@@ -94,8 +97,8 @@ all: $(BIN_PATH)/$(BIN_NAME)
 # Creation of the executable
 $(BIN_PATH)/$(BIN_NAME): $(OBJECTS)
 	@echo "Linking: $@"
-	#$(CXX) -O3 -fopenmp -xAVX2 -axAVX2 $(OBJECTS) -o $@
-	$(CXX) -O3 -fopenmp $(ARCH_FLAGS) $(OBJECTS) $(INCLUDES) $(LIBS) -o $@
+	#$(CXX) -O3 $(CILK_FLAGS) -xAVX2 -axAVX2 $(OBJECTS) -o $@
+	$(CXX) -O3 $(CILK_FLAGS) $(ARCH_FLAGS) $(OBJECTS) $(INCLUDES) $(LIBS) -o $@
 
 # Add dependency files, if they exist
 -include $(DEPS)

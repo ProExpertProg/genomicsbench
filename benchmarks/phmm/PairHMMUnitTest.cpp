@@ -24,7 +24,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,  EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include <omp.h>
+#include "../cilk_util.h"
 #include <getopt.h>
 #include <iostream>
 #include <fstream>
@@ -196,17 +196,12 @@ int main(int argc, char** argv) {
 
     vector<Batch> batches;
     batches = read_testfile(opt::testfile);
+    opt::nThreads = gb_num_workers(); // per-worker scratch; -t is ignored (use CILK_NWORKERS)
     printf("Num Batches %d, Num threads %d\n", batches.size(), opt::nThreads);
 
     testcase* testcases = (testcase *)_mm_malloc(MAX_BATCH_SIZE * opt::nThreads * sizeof(testcase), 64);
 
-    #pragma omp parallel num_threads(opt::nThreads)
-    {
-        int tid = omp_get_thread_num();
-        if (tid == 0) {
-            printf("Running %d threads\n", opt::nThreads);
-        }
-    }
+    printf("Running %d threads\n", opt::nThreads);
 
     struct timeval start_time, end_time;
     double runtime = 0;
@@ -221,11 +216,10 @@ int main(int argc, char** argv) {
             std::sort(batches.begin(), batches.end(), SortByCells());
         #endif
 
-        #pragma omp parallel num_threads(opt::nThreads)
+        GB_LOOP_TRIPS("phmm", batches.size());
         {
-            int tid = omp_get_thread_num();
-            #pragma omp for schedule(dynamic)
-                for (int i = 0; i < batches.size(); i++) {
+            cilk_for (int i = 0; i < batches.size(); i++) {
+                    int tid = gb_worker_id();
                     int batch_size = batches[i].num_reads * batches[i].num_haps;
                     assert(batch_size <= MAX_BATCH_SIZE);
                     testcase *tc = &testcases[tid * MAX_BATCH_SIZE];

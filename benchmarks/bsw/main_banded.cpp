@@ -34,7 +34,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include <time.h>
 #include <limits>
 #include <unistd.h>
-#include <omp.h>
+#include "../cilk_util.h"
 #include <fstream>
 #include "utils.h"
 #include "bandedSWA.h"
@@ -209,6 +209,7 @@ int main(int argc, char *argv[])
 	}
 	
 	parseCmdLine(argc, argv);
+	numThreads = gb_num_workers(); // per-worker state; -t is ignored (use CILK_NWORKERS)
 
 	pairFile = fopen(pairFileName, "r");	
 	if (pairFile == NULL) {
@@ -276,19 +277,17 @@ int main(int argc, char *argv[])
     #endif
     int64_t workTicks[CLMUL * numThreads];
     memset(workTicks, 0, CLMUL * numThreads * sizeof(int64_t));
-#pragma omp parallel num_threads(numThreads)
-{
-    int tid = omp_get_thread_num();
-    #pragma omp for schedule(dynamic, 1) 
-        for (int64_t i = 0; i < roundNumPairs; i += batchSize) {
-            int nPairsBatch = (numPairs - i) >= batchSize ? batchSize : numPairs - i;
-            int64_t st1 = __rdtsc();
-            bsw[tid]->getScores16(seqPairArray + i, seqBufRef + i * MAX_SEQ_LEN_REF, seqBufQer + i * MAX_SEQ_LEN_QER, nPairsBatch, 1, w);
-            int64_t et1 = __rdtsc();
-            workTicks[CLMUL * tid] += (et1 - st1);
-        }
-    printf("%d] workTicks = %ld\n", tid, workTicks[CLMUL * tid]);  
-}
+    GB_LOOP_TRIPS("bsw", (roundNumPairs + batchSize - 1) / batchSize);
+    cilk_for (int64_t i = 0; i < roundNumPairs; i += batchSize) {
+        int tid = gb_worker_id();
+        int nPairsBatch = (numPairs - i) >= batchSize ? batchSize : numPairs - i;
+        int64_t st1 = __rdtsc();
+        bsw[tid]->getScores16(seqPairArray + i, seqBufRef + i * MAX_SEQ_LEN_REF, seqBufQer + i * MAX_SEQ_LEN_QER, nPairsBatch, 1, w);
+        int64_t et1 = __rdtsc();
+        workTicks[CLMUL * tid] += (et1 - st1);
+    }
+    for (int t = 0; t < numThreads; t++)
+        printf("%d] workTicks = %ld\n", t, workTicks[CLMUL * t]);
     
     #ifdef VTUNE_ANALYSIS
         __itt_pause();
@@ -349,5 +348,5 @@ int main(int argc, char *argv[])
     }
 	
 	fclose(pairFile);
-	return 1;
+	return 0;
 }

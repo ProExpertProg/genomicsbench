@@ -29,6 +29,9 @@
 ##*****************************************************************************************/
 
 
+# OpenCilk flags; sweeps override this (see scripts/sweep-cilk.sh)
+CILK_FLAGS ?= -fopencilk
+
 EXE=		bsw
 CXX=		g++
 #CXX=		icpc
@@ -56,10 +59,10 @@ else ifneq ($(arch),)
 		ARCH_FLAGS=$(arch)
 endif
 
-CXXFLAGS=	-DSORT_PAIRS -DENABLE_PREFETCH -DBWA_OTHER_ELE=0 -O3 -std=c++11 -fopenmp $(ARCH_FLAGS) #-mtune=native -march=native
+CXXFLAGS=	-DSORT_PAIRS -DENABLE_PREFETCH -DBWA_OTHER_ELE=0 -O3 -std=c++11 $(CILK_FLAGS) $(ARCH_FLAGS) #-mtune=native -march=native
 #VTUNE_HOME= /opt/intel/oneapi/vtune/2021.1.1
 INCLUDES=
-LIBS=		-fopenmp -lz -ldl
+LIBS=		$(CILK_FLAGS) -lz -ldl
 
 ifneq ($(VTUNE_HOME),)
 CXXFLAGS+= -DVTUNE_ANALYSIS=1

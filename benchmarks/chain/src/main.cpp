@@ -5,7 +5,7 @@
 #include <getopt.h>
 #include <string>
 #include <iostream>
-#include "omp.h"
+#include "../../cilk_util.h"
 #include "host_data_io.h"
 #include "host_data.h"
 #include "host_kernel.h"
@@ -78,13 +78,7 @@ int main(int argc, char **argv) {
 
     rets.resize(calls.size());
 
-#pragma omp parallel num_threads(numThreads)
-{
-    int tid = omp_get_thread_num();
-    if (tid == 0) {
-        fprintf(stderr, "Running with threads: %d\n", numThreads);
-    }
-}
+    fprintf(stderr, "Running with threads: %d\n", gb_num_workers()); // -t is ignored (use CILK_NWORKERS)
 
     struct timeval start_time, end_time;
     double runtime = 0;

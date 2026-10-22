@@ -2,6 +2,7 @@
 //This file is a part of ABruijn program.
 //Released under the BSD license (see LICENSE file)
 
+#include "../cilk_util.h"
 #include <iostream>
 #include <signal.h>
 #include <stdlib.h>
@@ -167,6 +168,7 @@ int main(int argc, char** argv)
 	{
 		kmerSize = Config::get("kmer_size");
 	}
+	numThreads = gb_num_workers(); // --threads is ignored (use CILK_NWORKERS)
 	Parameters::get().numThreads = numThreads;
 	Parameters::get().kmerSize = kmerSize;
 	Parameters::get().minimumOverlap = minOverlap;

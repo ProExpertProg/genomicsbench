@@ -16,7 +16,7 @@
 #include <assert.h>
 #include <exception>
 #include <getopt.h>
-#include <omp.h>
+#include "../cilk_util.h"
 #include "spoa/spoa.hpp"
 #include "spoa/graph.hpp"
 #include "spoa/alignment_engine.hpp"
@@ -181,6 +181,7 @@ int main(int argc, char** argv) {
         }
     }
 
+    numThreads = gb_num_workers(); // per-worker engines; -t is ignored (use CILK_NWORKERS)
     std::int8_t oe1=o1+e1, oe2=o2+e2;
 
     std::unique_ptr<spoa::AlignmentEngine> alignment_engine[numThreads];
@@ -205,13 +206,7 @@ int main(int argc, char** argv) {
     double realtime = 0, real_start, real_end;
     double graphCreationTime = 0, alignTime = 0, addToGraphTime = 0, generateConsensusTime = 0;
 
-#pragma omp parallel num_threads(numThreads) 
-{
-    int tid = omp_get_thread_num();
-    if (tid == 0) {
-        fprintf(stderr, "Running with threads: %d\n", numThreads);
-    }
-}
+fprintf(stderr, "Running with threads: %d\n", numThreads);
 
     readFile(fp_seq, batches);
     fprintf(stderr, "Number of batches: %lu, Size of batch struct %d\n", batches.size(), sizeof(Batch));
@@ -227,11 +222,10 @@ int main(int argc, char** argv) {
     std::sort(batches.begin(), batches.end(), SortBySize());
 #endif
 
-#pragma omp parallel num_threads(numThreads)
+GB_LOOP_TRIPS("poa", batches.size());
 {
-    int tid = omp_get_thread_num();
-    #pragma omp for schedule(dynamic, 1)
-        for (int i = 0; i < batches.size(); i++) {
+    cilk_for (int i = 0; i < batches.size(); i++) {
+            int tid = gb_worker_id();
             int64_t st1 = __rdtsc();
             // gettimeofday(&t_start, NULL);
             auto graph = spoa::createGraph();
@@ -255,9 +249,10 @@ int main(int argc, char** argv) {
             int64_t et1 = __rdtsc();
             workTicks[CLMUL * tid] += (et1 - st1);
         }
-    printf("%d] workTicks = %ld\n", tid, workTicks[CLMUL * tid]);
-
 }
+    for (int t = 0; t < numThreads; t++)
+        printf("%d] workTicks = %ld\n", t, workTicks[CLMUL * t]);
+
 #ifdef ENABLE_SORT
     std::sort(batches.begin(), batches.end(), SortById());
 #endif

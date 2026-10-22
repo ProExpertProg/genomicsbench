@@ -8,3 +8,15 @@ long-reads/basecalling/output
 *.out
 *.csv
 *.conf
+
+# built benchmark binaries
+benchmarks/bsw/bsw
+benchmarks/chain/chain
+benchmarks/chain/build/
+benchmarks/dbg/dbg
+benchmarks/fmi/fmi
+benchmarks/kmer-cnt/kmer-cnt
+benchmarks/phmm/phmm
+benchmarks/pileup/pileup
+benchmarks/poa/poa
+sweep-out/

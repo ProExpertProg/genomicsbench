@@ -1,3 +1,6 @@
+# OpenCilk flags; sweeps override this (see scripts/sweep-cilk.sh)
+CILK_FLAGS ?= -fopencilk
+
 CC      = gcc
 #CC		= icpc
 ARCH_FLAGS=	-msse4.1
@@ -27,7 +30,7 @@ CFLAGS= -g -O2 -std=c++11 $(ARCH_FLAGS)
 #VTUNE_HOME= /opt/intel/vtune_profiler
 GKLPATH= ../../tools/GKL
 INC=
-SHARED_LIBRARIES = -fopenmp -L$(GKLPATH)/build/native -lgkl_pairhmm_c -lstdc++ -ldl
+SHARED_LIBRARIES = $(CILK_FLAGS) -L$(GKLPATH)/build/native -lgkl_pairhmm_c -lstdc++ -ldl
 
 ifneq ($(VTUNE_HOME),)
 CFLAGS+= -DVTUNE_ANALYSIS=1
@@ -41,7 +44,7 @@ phmm: PairHMMUnitTest.o
 	$(CC) -o $@ $^ $(CFLAGS) ${INC} $(SHARED_LIBRARIES)
 
 PairHMMUnitTest.o: PairHMMUnitTest.cpp PairHMMUnitTest.h
-	$(CC) -c $(CFLAGS) ${INC} -fopenmp $<
+	$(CC) -c $(CFLAGS) ${INC} $(CILK_FLAGS) $<
 
 .PHONY: clean
 

@@ -13,7 +13,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <time.h>
-#include "omp.h"
+#include "../cilk_util.h"
 #include "htslib/sam.h"
 #include "common.h"
 #include "htslib/faidx.h"
@@ -1554,23 +1554,16 @@ int main(int argc,char** argv){
         batches.push_back(b);
     }
 
-#pragma omp parallel num_threads(numThreads)
-{
-    int tid = omp_get_thread_num();
-    if (tid == 0) {
-        fprintf(stderr, "Found %d batches. Running with threads: %d\n", batches.size(), numThreads);
-    }
-}
+    fprintf(stderr, "Found %d batches. Running with threads: %d\n", batches.size(), gb_num_workers()); // thread arg is ignored (use CILK_NWORKERS)
 
     gettimeofday(&start_time, NULL);
 #ifdef VTUNE_ANALYSIS
     __itt_resume();
 #endif
-#pragma omp parallel num_threads(numThreads)
+GB_LOOP_TRIPS("dbg", batches.size());
 {
-    int tid = omp_get_thread_num();
-    #pragma omp for schedule(dynamic, 1)
-        for (int i = 0; i < batches.size(); i++) {
+    cilk_for (int i = 0; i < batches.size(); i++) {
+            int tid = gb_worker_id();
             int assemStart = batches[i].offset;
             int assemEnd = std::min(assemStart + assemblyRegionSize, end);
             int refStart = std::max(0, assemStart - assemblyRegionSize);

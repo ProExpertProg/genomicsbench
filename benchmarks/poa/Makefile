@@ -1,3 +1,6 @@
+# OpenCilk flags; sweeps override this (see scripts/sweep-cilk.sh)
+CILK_FLAGS ?= -fopencilk
+
 CXX=g++
 #CXX=icpc
 
@@ -23,10 +26,10 @@ else ifneq ($(arch),)
 		ARCH_FLAGS=$(arch)
 endif
 
-CXXFLAGS=-O3 -fopenmp $(ARCH_FLAGS)
+CXXFLAGS=-O3 $(CILK_FLAGS) $(ARCH_FLAGS)
 #VTUNE_HOME= /opt/intel/vtune_profiler
 INCLUDES=-I../../tools/spoa/include
-LIBS=-L../../tools/spoa/build/lib/ -lspoa -ldl -fopenmp
+LIBS=-L../../tools/spoa/build/lib/ -lspoa -ldl $(CILK_FLAGS)
 
 ifneq ($(VTUNE_HOME),)
 CXXFLAGS+= -DVTUNE_ANALYSIS=1

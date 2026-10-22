@@ -6,6 +6,7 @@
 #include <functional>
 #include <atomic>
 #include <thread>
+#include "../cilk_util.h"
 
 #include "progress_bar.h"
 
@@ -18,42 +19,16 @@ void processInParallel(const std::vector<T>& scheduledTasks,
 {
 	if (scheduledTasks.empty()) return;
 
-	std::atomic<size_t> jobId(0);
 	ProgressPercent progress(scheduledTasks.size());
 	if (progressBar) progress.advance(0);
 
-	auto threadWorker = [&jobId, &scheduledTasks, &updateFun, 
-						 &progress, progressBar]()
+	// one task per iteration, as with the original dynamic job queue; the
+	// number of workers is set by CILK_NWORKERS, maxThreads is ignored
+	GB_LOOP_TRIPS("kmer-cnt", scheduledTasks.size());
+	cilk_for (size_t i = 0; i < scheduledTasks.size(); ++i)
 	{
-		while (true)
-		{
-			size_t expected = 0;
-			while(true)
-			{
-				expected = jobId;
-				if (jobId == scheduledTasks.size()) 
-				{
-					return;
-				}
-				if (jobId.compare_exchange_weak(expected, expected + 1))
-				{
-					break;
-				}
-			}
-			updateFun(scheduledTasks[expected]);
-			if (progressBar) progress.advance();
-		}
-	};
-
-	std::vector<std::thread> threads(std::min(maxThreads, 
-											  scheduledTasks.size()));
-	for (size_t i = 0; i < threads.size(); ++i)
-	{
-		threads[i] = std::thread(threadWorker);
-	}
-	for (size_t i = 0; i < threads.size(); ++i)
-	{
-		threads[i].join();
+		updateFun(scheduledTasks[i]);
+		if (progressBar) progress.advance();
 	}
 }
 

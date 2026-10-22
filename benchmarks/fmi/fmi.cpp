@@ -30,7 +30,7 @@ Authors: Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@i
 #include<stdio.h>
 #include<stdlib.h>
 #include<stdint.h>
-#include <omp.h>
+#include "../cilk_util.h"
 #include <string.h>
 #include "bwa.h"
 #include "FMI_search.h"
@@ -133,14 +133,13 @@ int main(int argc, char **argv) {
 
 
     int32_t minSeedLen = atoi(argv[4]);
-    int numthreads=atoi(argv[5]);
+    int numthreads=gb_num_workers(); // per-worker state; argv[5] (threads) is ignored: use CILK_NWORKERS
 
     const int splitWidth = 10;
     const int maxMemIntv = 20;
     const double splitFactor = 1.5;
 
     assert(numthreads > 0);
-    assert(numthreads <= omp_get_max_threads());
     SMEM *matchArray[CLMUL * numthreads];
     int32_t *min_intv_array[CLMUL * numthreads];
     int32_t *rid_array[CLMUL * numthreads];
@@ -154,13 +153,7 @@ int main(int argc, char **argv) {
     sleep(1);
     uint64_t proc_freq = __rdtsc() - tim;
 
-#pragma omp parallel num_threads(numthreads)
-    {
-        int tid = omp_get_thread_num();
-
-        if(tid == 0)
-            printf("Running %d threads\n", omp_get_num_threads());
-    }
+    printf("Running %d threads\n", numthreads);
 
     int64_t i;
 
@@ -177,21 +170,25 @@ int main(int argc, char **argv) {
 
     int split_len = (int)(minSeedLen * splitFactor + .499);
 
-#pragma omp parallel num_threads(numthreads)
-    {
-        int32_t tid = omp_get_thread_num();
+    // per-worker scratch state (was thread-private inside the omp parallel region)
+    int64_t matchArrayAllocs[CLMUL * numthreads];
+    int64_t myTotalSmemsArr[CLMUL * numthreads];
+    for (int32_t t = 0; t < numthreads; t++) {
         int64_t matchArrayAlloc = perThreadQuota * 20;
-        matchArray[CLMUL * tid] = (SMEM *)malloc(matchArrayAlloc * sizeof(SMEM));
-        min_intv_array[CLMUL * tid] = (int32_t *)malloc(matchArrayAlloc * sizeof(int32_t));
-        rid_array[CLMUL * tid] = (int32_t *)malloc(matchArrayAlloc * sizeof(int32_t));
-        query_pos_array[CLMUL * tid] = (int16_t *)malloc(matchArrayAlloc * sizeof(int16_t));
-
-        int64_t myTotalSmems = 0;
-        int64_t startTick = __rdtsc();
-
-#pragma omp for schedule(dynamic, 1)
-        for(i = 0; i < numReads; i += batch_size)
+        matchArrayAllocs[CLMUL * t] = matchArrayAlloc;
+        myTotalSmemsArr[CLMUL * t] = 0;
+        matchArray[CLMUL * t] = (SMEM *)malloc(matchArrayAlloc * sizeof(SMEM));
+        min_intv_array[CLMUL * t] = (int32_t *)malloc(matchArrayAlloc * sizeof(int32_t));
+        rid_array[CLMUL * t] = (int32_t *)malloc(matchArrayAlloc * sizeof(int32_t));
+        query_pos_array[CLMUL * t] = (int16_t *)malloc(matchArrayAlloc * sizeof(int16_t));
+    }
+    {
+        GB_LOOP_TRIPS("fmi", num_batches);
+        cilk_for(int64_t i = 0; i < numReads; i += batch_size)
         {
+            int32_t tid = gb_worker_id();
+            int64_t &matchArrayAlloc = matchArrayAllocs[CLMUL * tid];
+            int64_t &myTotalSmems = myTotalSmemsArr[CLMUL * tid];
             int64_t st1 = __rdtsc();
             int32_t batch_count = batch_size;
             if((i + batch_count) > numReads) batch_count = numReads - i;
@@ -281,9 +278,9 @@ int main(int argc, char **argv) {
             workTicks[CLMUL * tid] += (et1 - st1);
         }
 
-        int64_t endTick = __rdtsc();
-        printf("%d] %ld ticks, workTicks = %ld\n", tid, endTick - startTick, workTicks[CLMUL * tid]);
     }
+    for (int32_t t = 0; t < numthreads; t++)
+        printf("%d] workTicks = %ld\n", t, workTicks[CLMUL * t]);
 
     endTick = __rdtsc();
 #ifdef VTUNE_ANALYSIS
