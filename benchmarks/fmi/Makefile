@@ -59,7 +59,7 @@ else ifneq ($(arch),)
 		ARCH_FLAGS=$(arch)
 endif
 
-CXXFLAGS=	-std=c++11 $(CILK_FLAGS) $(ARCH_FLAGS) #-mtune=native -march=native
+CXXFLAGS=	-O3 -std=c++11 $(CILK_FLAGS) $(ARCH_FLAGS) #-mtune=native -march=native
 #CPPFLAGS=	-DPRINT_OUTPUT -DENABLE_PREFETCH -DBWA_OTHER_ELE=0
 CPPFLAGS=	-DENABLE_PREFETCH -DBWA_OTHER_ELE=0
 BWAMEM2_PATH=../../tools/bwa-mem2

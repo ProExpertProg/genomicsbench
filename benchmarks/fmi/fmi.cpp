@@ -184,8 +184,11 @@ int main(int argc, char **argv) {
     }
     {
         GB_LOOP_TRIPS("fmi", num_batches);
-        cilk_for(int64_t i = 0; i < numReads; i += batch_size)
+        // unit stride over batches: a runtime stride defeats the trip-count analysis, and the
+        // loop would not be lowered to a runtime cilk_for (CILK_GRAINSIZE would be ignored)
+        cilk_for(int64_t b = 0; b < num_batches; b++)
         {
+            const int64_t i = b * (int64_t)batch_size;
             int32_t tid = gb_worker_id();
             int64_t &matchArrayAlloc = matchArrayAllocs[CLMUL * tid];
             int64_t &myTotalSmems = myTotalSmemsArr[CLMUL * tid];

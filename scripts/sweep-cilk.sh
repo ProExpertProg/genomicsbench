@@ -27,6 +27,7 @@
 #                     with that runtime is made with make-resource-dir.sh. The runtime must be
 #                     built with -DCILK_DEFAULT_GRAINSIZE=<n>, or CILK_GRAINSIZE is ignored.
 #   TOOLCHAIN_RD      toolchain resource dir used with CHEETAH_BUILD (default: <clang>/../lib/clang/*)
+#   FMI_INDEX         bwa-mem2 index prefix for fmi              (default: <inputs>/fmi/broad, a ~18 GB index)
 #   CPATH, LIBRARY_PATH   extra header/library search paths for the benchmark builds
 #
 # CSV columns: bench,size,coarsen,grainsize,workers,rep,wall_s,kernel_s,iters,status
@@ -101,8 +102,8 @@ run_cmd() {
     local b=$1 bin=$2 d=$inputs
     case $b in
     fmi)
-        if [[ $size == large ]]; then echo "$bin $d/fmi/broad $d/fmi/large/SRR7733443_10m_1.fastq 512 19 1"
-        else echo "$bin $d/fmi/broad $d/fmi/small/SRR7733443_1m_1.fastq 512 19 1"; fi ;;
+        if [[ $size == large ]]; then echo "$bin ${FMI_INDEX:-$d/fmi/broad} $d/fmi/large/SRR7733443_10m_1.fastq 512 19 1"
+        else echo "$bin ${FMI_INDEX:-$d/fmi/broad} $d/fmi/small/SRR7733443_1m_1.fastq 512 19 1"; fi ;;
     bsw)
         if [[ $size == large ]]; then echo "$bin -pairs $d/bsw/large/bandedSWA_SRR7733443_1m_input.txt -t 1 -b 512"
         else echo "$bin -pairs $d/bsw/small/bandedSWA_SRR7733443_100k_input.txt -t 1 -b 512"; fi ;;
@@ -111,7 +112,7 @@ run_cmd() {
         else echo "$bin -f $d/phmm/small/5m.in -t 1"; fi ;;
     dbg)
         if [[ $size == large ]]; then echo "$bin $d/dbg/large/ERR194147-mem2-chr22.bam chr22:0-50818468 $d/dbg/large/Homo_sapiens_assembly38.fasta 1"
-        else echo "$bin $d/dbg/small/ERR194147-mem2-chr22.bam chr22:16000000-16500000 $d/dbg/large/Homo_sapiens_assembly38.fasta 1"; fi ;;
+        else echo "$bin $d/dbg/large/ERR194147-mem2-chr22.bam chr22:16000000-16500000 $d/dbg/large/Homo_sapiens_assembly38.fasta 1"; fi ;;
     chain)
         if [[ $size == large ]]; then echo "$bin -i $d/chain/large/c_elegans_40x.10k.in -o /dev/null"
         else echo "$bin -i $d/chain/small/in-1k.txt -o /dev/null"; fi ;;
