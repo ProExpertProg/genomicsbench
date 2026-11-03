@@ -548,11 +548,18 @@ int main(int argc, char *argv[]) {
 #endif
     // process batches in parallel
     GB_LOOP_TRIPS("pileup", batches.n);
+    for (int gb_rep = 0; gb_rep < gb_repeat(); gb_rep++) {
+    if (gb_rep > 0) { // untimed: free the previous repetition's result (the last one is freed below)
+        for (int j = 0; j < batches.n; j++) destroy_plp_data(batches.a[j].pileup);
+    }
+    const double gb_t0 = gb_now();
     cilk_for (int j = 0; j < batches.n; j++) {
         batches.a[j].pileup = calculate_pileup(
                                 batches.a[j].region_string, bam_file, num_dtypes, dtypes,
                                 num_homop, tag_name, tag_value, keep_missing,
                                 weibull_summation, read_group);
+    }
+    GB_KERNEL_TIME("pileup", gb_rep, gb_now() - gb_t0);
     }
 #ifdef VTUNE_ANALYSIS
     __itt_pause();

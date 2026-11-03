@@ -276,8 +276,20 @@ int main(int argc, char *argv[])
         __itt_resume();
     #endif
     int64_t workTicks[CLMUL * numThreads];
-    memset(workTicks, 0, CLMUL * numThreads * sizeof(int64_t));
     GB_LOOP_TRIPS("bsw", (roundNumPairs + batchSize - 1) / batchSize);
+    // getScores16 sorts the pairs in place: keep the loaded pairs to restore them before each repetition
+    const int gb_reps = gb_repeat();
+    SeqPair *seqPairPristine = NULL;
+    if (gb_reps > 1) {
+        seqPairPristine = (SeqPair *)_mm_malloc(roundNumPairs * sizeof(SeqPair), 64);
+        memcpy(seqPairPristine, seqPairArray, roundNumPairs * sizeof(SeqPair));
+    }
+    for (int gb_rep = 0; gb_rep < gb_reps; gb_rep++) {
+    if (gb_rep > 0) memcpy(seqPairArray, seqPairPristine, roundNumPairs * sizeof(SeqPair));
+    memset(workTicks, 0, CLMUL * numThreads * sizeof(int64_t));
+    totalTicks = 0;
+    startTick = __rdtsc();
+    const double gb_t0 = gb_now();
     cilk_for (int64_t i = 0; i < roundNumPairs; i += batchSize) {
         int tid = gb_worker_id();
         int nPairsBatch = (numPairs - i) >= batchSize ? batchSize : numPairs - i;
@@ -286,13 +298,15 @@ int main(int argc, char *argv[])
         int64_t et1 = __rdtsc();
         workTicks[CLMUL * tid] += (et1 - st1);
     }
+    GB_KERNEL_TIME("bsw", gb_rep, gb_now() - gb_t0);
+    totalTicks += __rdtsc() - startTick;
+    }
     for (int t = 0; t < numThreads; t++)
         printf("%d] workTicks = %ld\n", t, workTicks[CLMUL * t]);
     
     #ifdef VTUNE_ANALYSIS
         __itt_pause();
     #endif
-    totalTicks += __rdtsc() - startTick;
     printf("Executed AVX2 vector code...\n");
 
 	tim = __rdtsc();

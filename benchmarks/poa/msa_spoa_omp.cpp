@@ -223,7 +223,9 @@ fprintf(stderr, "Running with threads: %d\n", numThreads);
 #endif
 
 GB_LOOP_TRIPS("poa", batches.size());
-{
+for (int gb_rep = 0; gb_rep < gb_repeat(); gb_rep++) {
+    std::memset(workTicks, 0, CLMUL * numThreads * sizeof(int64_t));
+    const double gb_t0 = gb_now();
     cilk_for (int i = 0; i < batches.size(); i++) {
             int tid = gb_worker_id();
             int64_t st1 = __rdtsc();
@@ -249,6 +251,7 @@ GB_LOOP_TRIPS("poa", batches.size());
             int64_t et1 = __rdtsc();
             workTicks[CLMUL * tid] += (et1 - st1);
         }
+    GB_KERNEL_TIME("poa", gb_rep, gb_now() - gb_t0);
 }
     for (int t = 0; t < numThreads; t++)
         printf("%d] workTicks = %ld\n", t, workTicks[CLMUL * t]);

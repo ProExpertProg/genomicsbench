@@ -1561,7 +1561,8 @@ int main(int argc,char** argv){
     __itt_resume();
 #endif
 GB_LOOP_TRIPS("dbg", batches.size());
-{
+for (int gb_rep = 0; gb_rep < gb_repeat(); gb_rep++) { // each region builds and frees its own graph: safe to repeat
+    const double gb_t0 = gb_now();
     cilk_for (int i = 0; i < batches.size(); i++) {
             int tid = gb_worker_id();
             int assemStart = batches[i].offset;
@@ -1574,6 +1575,7 @@ GB_LOOP_TRIPS("dbg", batches.size());
             }
             assembleReadsAndDetectVariants(refStart, refEnd, batches[i].windowStart, batches[i].windowEnd, batches[i].ref);
         }
+    GB_KERNEL_TIME("dbg", gb_rep, gb_now() - gb_t0);
 }
 #ifdef VTUNE_ANALYSIS
     __itt_pause();

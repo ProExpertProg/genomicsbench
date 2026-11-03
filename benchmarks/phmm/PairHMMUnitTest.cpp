@@ -211,12 +211,14 @@ int main(int argc, char** argv) {
 #ifdef VTUNE_ANALYSIS
     __itt_resume();
 #endif
-    while (opt::loop) {
+    if (gb_repeat() > 1) opt::loop = gb_repeat();
+    GB_LOOP_TRIPS("phmm", batches.size());
+    for (int gb_rep = 0; opt::loop; gb_rep++) {
+        const double gb_t0 = gb_now();
         #ifdef ENABLE_SORT
             std::sort(batches.begin(), batches.end(), SortByCells());
         #endif
 
-        GB_LOOP_TRIPS("phmm", batches.size());
         {
             cilk_for (int i = 0; i < batches.size(); i++) {
                     int tid = gb_worker_id();
@@ -239,6 +241,7 @@ int main(int argc, char** argv) {
                     computelikelihoodsboth(&testcases[tid * MAX_BATCH_SIZE], batches[i].results, batch_size);
                 }
         }
+        GB_KERNEL_TIME("phmm", gb_rep, gb_now() - gb_t0);
         opt::loop--;
 
         #ifdef ENABLE_SORT

@@ -182,8 +182,16 @@ int main(int argc, char **argv) {
         rid_array[CLMUL * t] = (int32_t *)malloc(matchArrayAlloc * sizeof(int32_t));
         query_pos_array[CLMUL * t] = (int16_t *)malloc(matchArrayAlloc * sizeof(int16_t));
     }
+    GB_LOOP_TRIPS("fmi", num_batches);
+    for (int gb_rep = 0; gb_rep < gb_repeat(); gb_rep++)
     {
-        GB_LOOP_TRIPS("fmi", num_batches);
+        // untimed reset of the state the kernel modifies
+        memset(numTotalSmem, 0, num_batches * sizeof(int64_t));
+        memset(batchStart, 0, num_batches * sizeof(int64_t));
+        memset(workTicks, 0, CLMUL * numthreads * sizeof(int64_t));
+        for (int32_t t = 0; t < numthreads; t++) myTotalSmemsArr[CLMUL * t] = 0;
+        startTick = __rdtsc();
+        const double gb_t0 = gb_now();
         // unit stride over batches: a runtime stride defeats the trip-count analysis, and the
         // loop would not be lowered to a runtime cilk_for (CILK_GRAINSIZE would be ignored)
         cilk_for(int64_t b = 0; b < num_batches; b++)
@@ -280,7 +288,7 @@ int main(int argc, char **argv) {
             int64_t et1 = __rdtsc();
             workTicks[CLMUL * tid] += (et1 - st1);
         }
-
+        GB_KERNEL_TIME("fmi", gb_rep, gb_now() - gb_t0);
     }
     for (int32_t t = 0; t < numthreads; t++)
         printf("%d] workTicks = %ld\n", t, workTicks[CLMUL * t]);

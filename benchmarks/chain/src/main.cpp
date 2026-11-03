@@ -87,7 +87,11 @@ int main(int argc, char **argv) {
 #ifdef VTUNE_ANALYSIS
     __itt_resume();
 #endif
-    host_chain_kernel(calls, rets, numThreads);
+    for (int gb_rep = 0; gb_rep < gb_repeat(); gb_rep++) { // the kernel overwrites rets: safe to repeat
+        const double gb_t0 = gb_now();
+        host_chain_kernel(calls, rets, numThreads);
+        GB_KERNEL_TIME("chain", gb_rep, gb_now() - gb_t0);
+    }
 #ifdef VTUNE_ANALYSIS
     __itt_pause();
 #endif
