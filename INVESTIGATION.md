@@ -10,7 +10,9 @@ LF is within ~1-2% of DC wherever the comparison is fair. The places where LF *l
 
 1. **chunk granularity**: DC's leaves are smaller than G, LF's chunks are exactly G (most same-G slowdowns, up to +65%);
 2. **automatic NUMA balancing** noise (bsw +10%, fmi +23%, pileup, parts of chain);
-3. a small **steal-policy** effect on heavy-tailed loops (chain: 2-5% at equal chunk size).
+3. on chain, a few-percent effect that depends on **where the ~10 heaviest iterations sit in the input order** (see section 2:
+   averaged over random orderings of chain's own costs the model gives LF/DC = 1.015 at G = 4 and 8 and 1.07 at G = 64, the real
+   ordering is ~1 sigma unlucky for LF). I first read this as a steal-policy effect; the permutation test below does not support that.
 
 There is no sign of per-iteration or scheduler overhead in LF: the total body work of a loop is identical under both runtimes
 and the extra time is idle tail at the end of the loop.
@@ -50,10 +52,21 @@ Per-iteration traces (`GB_TRACE`, `scripts/analyze-trace.py`):
   DC = recursive halving, owner runs the left child, thieves steal the oldest continuation; LF = owner takes chunks in ascending order,
   thief takes the upper half of the victim's remaining chunks (`runtime/loop-frames.c`). It reproduces the measurements without any
   overhead: LF/DC 1.05 / 1.06 / 1.13 at G = 4 / 8 / 64 (measured 1.00-1.11 / 1.04-1.12 / 1.12-1.19), spans within a few percent.
-* Giving LF the exact chunk boundaries of DC's leaves cuts the model's gap to 1.02-1.04: granularity is most of it at large G, the
-  rest is the steal policy (what a thief takes).
-* What-if (model only): a thief that takes 2/3 or 4/5 of the victim's remaining chunks instead of half makes LF 3-7% *faster* than
-  DC on this loop. See section 5 for the check on the real runtime.
+* Giving LF the exact chunk boundaries of DC's leaves cuts the model's gap to 1.02-1.04 on the real ordering: granularity is most
+  of it at large G.
+* **The remainder is a property of this particular ordering, not of the policies.** The costs are close to i.i.d. along the index
+  (autocorrelation ~0), and ~10 iterations of 130-235 ms hold 13% of the work; the span depends on how these fall into each policy's
+  partition. Over 40 random permutations of the same costs (model, P = 64): LF/DC = 1.015 (std 0.041, range 0.93-1.12) at G = 4,
+  1.015 (0.043, 0.94-1.13) at G = 8, 1.071 (0.048) at G = 64. The real ordering (1.05-1.06 at G = 4/8, 1.13 at G = 64) is about
+  1 sigma above the mean at G = 4/8, and at G = 64 the mean gap itself is the granularity effect (chunk 64 vs 39). The input order is
+  fixed, so every run repeats the same arrangement and the trials look statistically very consistent; that says nothing about other
+  inputs. (A permutation of the input calls on the real runtime would confirm this; not done yet.)
+* The steal-share what-if (a thief taking 2/3 or 4/5 of the victim's chunks instead of half) makes LF 3-7% faster than DC on the
+  real ordering, but **averaged over the 40 permutations it does not help** (LF80/DC 1.015 / 1.017 / 1.082 at G = 4 / 8 / 64, the
+  same as stock LF), so it is not evidence for changing the steal policy.
+* The `feature/loop-frames-spread-remainder` branch (halve the grainsize when n % G != 0, then spread the remainder so chunks are
+  ~G/2) in the model on the real ordering: span 0.909 / 0.928 / 1.001 s at G = 4 / 8 / 64 against 0.924 / 0.943 / 1.184 (stock LF)
+  and 0.893 / 0.887 / 0.991 (DC): it helps at large G (chunk 64 -> ~32) and little at G = 4 / 8.
 
 ## 3. The remaining anomalies are automatic NUMA balancing
 
@@ -108,10 +121,10 @@ remaining chunks, `lf67`) or `/ 5` (4/5, `lf80`) instead of `(start + end) / 2`.
 | 64 | 1.002 (0.991) | 1.126 (1.122) | 1.116 (1.042) | 1.024 (1.014) |
 
 The model predicts the stock runtimes within ~1-2%, and lf80 within ~3% (LF/DC: 0.94 / 1.03 / 1.02 at G = 4 / 8 / 64, model 0.95 /
-0.97 / 1.02). lf67 at G = 64 is the one clear miss (1.116 measured, 1.042 modelled; CV 0.07). So for this loop the whole stock-LF gap
-to DC is a consequence of how many chunks a thief takes plus the coarser chunks, not of runtime overhead; a larger steal share
-removes it. This is one heavy-tailed loop and a model without steal costs: a larger share leaves the victim less work and could cost
-more steals on loops with uniform iterations, so this is a lead for the LF steal policy, not a recommendation.
+0.97 / 1.02). lf67 at G = 64 is the one clear miss (1.116 measured, 1.042 modelled; CV 0.07). This validates the *model* on chain's
+real input order, and shows that the gap to DC contains no runtime overhead. It does **not** show that a larger steal share is a
+better policy: the permutation test in section 2 finds no average gain, i.e. the improvement is specific to this ordering of the
+heavy iterations. (My first reading of this experiment, that the steal share explained the residual, was wrong.)
 
 ## Files
 
