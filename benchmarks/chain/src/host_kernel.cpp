@@ -96,10 +96,16 @@ void chain_dp(call_t* a, return_t* ret)
 void host_chain_kernel(std::vector<call_t> &args, std::vector<return_t> &rets, int numThreads)
 {
     GB_LOOP_TRIPS("chain", args.size());
+    static int gb_rep = 0;
+    static gb_trace_rec *tr = gb_trace_alloc(args.size());
+    const double gb_t0 = gb_now();
     cilk_for (size_t batch = 0; batch < args.size(); batch++) {
+        GB_TRACE_BEGIN(tr);
         call_t* arg = &args[batch];
         return_t* ret = &rets[batch];
         // fprintf(stderr, "%lld\t%f\t%d\t%d\t%d\t%d\n", arg->n, arg->avg_qspan, arg->max_dist_x, arg->max_dist_y, arg->bw, arg->n_segs);
         chain_dp(arg, ret);
+        GB_TRACE_END(tr, batch);
     }
+    gb_trace_dump("chain", gb_rep++, tr, args.size(), gb_t0);
 }

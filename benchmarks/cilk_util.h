@@ -40,6 +40,38 @@ static inline double gb_now(void) {
 
 #define GB_KERNEL_TIME(name, rep, seconds) fprintf(stderr, "GB-KERNEL %s %d %.6f\n", (name), (rep), (seconds))
 
+/*
+ * GB_TRACE=<existing dir> records, for every iteration of a traced loop, its worker and its start and end time, and
+ * writes <dir>/<name>-rep<k>.csv (idx,worker,t0,t1; seconds since the start of the kernel) after every repetition.
+ * Meant for diagnosing load balance and ramp-up; it costs two gettimeofday calls per iteration.
+ *   gb_trace_rec *tr = gb_trace_alloc(n);    // NULL unless GB_TRACE is set
+ *   t0 = gb_now(); cilk_for (i...) { GB_TRACE_BEGIN(tr); ...body...; GB_TRACE_END(tr, i); }
+ *   gb_trace_dump("name", rep, tr, n, t0);
+ */
+typedef struct { double t0, t1; int worker; } gb_trace_rec;
+
+static inline gb_trace_rec *gb_trace_alloc(long n) {
+    if (!getenv("GB_TRACE")) return NULL;
+    return (gb_trace_rec *)calloc((size_t)n, sizeof(gb_trace_rec));
+}
+
+#define GB_TRACE_BEGIN(tr) const double gb_trace_t0 = (tr) ? gb_now() : 0.0
+#define GB_TRACE_END(tr, i) \
+    do { if (tr) { (tr)[i].t0 = gb_trace_t0; (tr)[i].t1 = gb_now(); (tr)[i].worker = gb_worker_id(); } } while (0)
+
+static inline void gb_trace_dump(const char *name, int rep, const gb_trace_rec *tr, long n, double kernel_start) {
+    const char *dir = getenv("GB_TRACE");
+    if (!tr || !dir) return;
+    char path[1024];
+    snprintf(path, sizeof path, "%s/%s-rep%d.csv", dir, name, rep);
+    FILE *f = fopen(path, "w");
+    if (!f) { perror(path); return; }
+    fprintf(f, "idx,worker,t0,t1\n");
+    for (long i = 0; i < n; i++)
+        fprintf(f, "%ld,%d,%.6f,%.6f\n", i, tr[i].worker, tr[i].t0 - kernel_start, tr[i].t1 - kernel_start);
+    fclose(f);
+}
+
 static inline int gb_num_workers(void) { return (int)__cilkrts_get_nworkers(); }
 
 /* Worker slot of the calling strand: 0 <= id < gb_num_workers(). */

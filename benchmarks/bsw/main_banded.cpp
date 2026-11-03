@@ -289,16 +289,21 @@ int main(int argc, char *argv[])
     memset(workTicks, 0, CLMUL * numThreads * sizeof(int64_t));
     totalTicks = 0;
     startTick = __rdtsc();
+    gb_trace_rec *gb_tr = gb_trace_alloc((roundNumPairs + batchSize - 1) / batchSize);
     const double gb_t0 = gb_now();
     cilk_for (int64_t i = 0; i < roundNumPairs; i += batchSize) {
+        GB_TRACE_BEGIN(gb_tr);
         int tid = gb_worker_id();
         int nPairsBatch = (numPairs - i) >= batchSize ? batchSize : numPairs - i;
         int64_t st1 = __rdtsc();
         bsw[tid]->getScores16(seqPairArray + i, seqBufRef + i * MAX_SEQ_LEN_REF, seqBufQer + i * MAX_SEQ_LEN_QER, nPairsBatch, 1, w);
         int64_t et1 = __rdtsc();
         workTicks[CLMUL * tid] += (et1 - st1);
+        GB_TRACE_END(gb_tr, i / batchSize);
     }
     GB_KERNEL_TIME("bsw", gb_rep, gb_now() - gb_t0);
+    gb_trace_dump("bsw", gb_rep, gb_tr, (roundNumPairs + batchSize - 1) / batchSize, gb_t0);
+    free(gb_tr);
     totalTicks += __rdtsc() - startTick;
     }
     for (int t = 0; t < numThreads; t++)

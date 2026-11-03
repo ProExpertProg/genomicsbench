@@ -191,11 +191,13 @@ int main(int argc, char **argv) {
         memset(workTicks, 0, CLMUL * numthreads * sizeof(int64_t));
         for (int32_t t = 0; t < numthreads; t++) myTotalSmemsArr[CLMUL * t] = 0;
         startTick = __rdtsc();
+        gb_trace_rec *gb_tr = gb_trace_alloc(num_batches);
         const double gb_t0 = gb_now();
         // unit stride over batches: a runtime stride defeats the trip-count analysis, and the
         // loop would not be lowered to a runtime cilk_for (CILK_GRAINSIZE would be ignored)
         cilk_for(int64_t b = 0; b < num_batches; b++)
         {
+            GB_TRACE_BEGIN(gb_tr);
             const int64_t i = b * (int64_t)batch_size;
             int32_t tid = gb_worker_id();
             int64_t &matchArrayAlloc = matchArrayAllocs[CLMUL * tid];
@@ -287,8 +289,11 @@ int main(int argc, char **argv) {
             myTotalSmems += totalSmem; 
             int64_t et1 = __rdtsc();
             workTicks[CLMUL * tid] += (et1 - st1);
+            GB_TRACE_END(gb_tr, b);
         }
         GB_KERNEL_TIME("fmi", gb_rep, gb_now() - gb_t0);
+        gb_trace_dump("fmi", gb_rep, gb_tr, num_batches, gb_t0);
+        free(gb_tr);
     }
     for (int32_t t = 0; t < numthreads; t++)
         printf("%d] workTicks = %ld\n", t, workTicks[CLMUL * t]);
