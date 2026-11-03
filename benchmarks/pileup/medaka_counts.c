@@ -552,14 +552,19 @@ int main(int argc, char *argv[]) {
     if (gb_rep > 0) { // untimed: free the previous repetition's result (the last one is freed below)
         for (int j = 0; j < batches.n; j++) destroy_plp_data(batches.a[j].pileup);
     }
+    gb_trace_rec *gb_tr = gb_trace_alloc(batches.n);
     const double gb_t0 = gb_now();
     cilk_for (int j = 0; j < batches.n; j++) {
+        GB_TRACE_BEGIN(gb_tr);
         batches.a[j].pileup = calculate_pileup(
                                 batches.a[j].region_string, bam_file, num_dtypes, dtypes,
                                 num_homop, tag_name, tag_value, keep_missing,
                                 weibull_summation, read_group);
+        GB_TRACE_END(gb_tr, j);
     }
     GB_KERNEL_TIME("pileup", gb_rep, gb_now() - gb_t0);
+    gb_trace_dump("pileup", gb_rep, gb_tr, batches.n, gb_t0);
+    free(gb_tr);
     }
 #ifdef VTUNE_ANALYSIS
     __itt_pause();
