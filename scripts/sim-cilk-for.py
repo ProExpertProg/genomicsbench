@@ -21,13 +21,14 @@ import random
 import numpy as np
 
 
-def sim_dc(cost, P, G, rng):
+def sim_dc(cost, P, G, rng, return_finish=False):
     pre = np.concatenate([[0.0], np.cumsum(cost)])
     n = len(cost)
     dq = [[] for _ in range(P)]          # (lo, hi); index 0 = oldest
     ev = []                              # (time, worker): worker becomes free
     idle = set(range(P))
     span = 0.0
+    fin = [0.0] * P                      # when each worker last finished work
 
     def start_task(w, t, lo, hi):
         nonlocal span
@@ -37,6 +38,7 @@ def sim_dc(cost, P, G, rng):
             hi = mid
         f = t + pre[hi] - pre[lo]
         span = max(span, f)
+        fin[w] = max(fin[w], f)
         heapq.heappush(ev, (f, w))
         idle.discard(w)
 
@@ -63,7 +65,7 @@ def sim_dc(cost, P, G, rng):
         t, w = heapq.heappop(ev)
         idle.add(w)
         feed(t)
-    return span
+    return (span, fin) if return_finish else span
 
 
 def dc_leaves(n, G):
@@ -80,7 +82,7 @@ def dc_leaves(n, G):
     return out
 
 
-def sim_lf(cost, P, G, rng, dc_chunks=False, steal_frac=0.5):
+def sim_lf(cost, P, G, rng, dc_chunks=False, steal_frac=0.5, return_finish=False):
     n = len(cost)
     pre = np.concatenate([[0.0], np.cumsum(cost)])
     if dc_chunks:       # same chunks as DC's leaves instead of chunks of G iterations
@@ -95,6 +97,7 @@ def sim_lf(cost, P, G, rng, dc_chunks=False, steal_frac=0.5):
     ev = []
     idle = set(range(P))
     span = 0.0
+    fin = [0.0] * P
 
     def run_next(w, t):
         nonlocal span
@@ -102,6 +105,7 @@ def sim_lf(cost, P, G, rng, dc_chunks=False, steal_frac=0.5):
         rng_s[w] += 1
         f = t + ccost[k]
         span = max(span, f)
+        fin[w] = max(fin[w], f)
         heapq.heappush(ev, (f, w))
         idle.discard(w)
 
@@ -131,7 +135,7 @@ def sim_lf(cost, P, G, rng, dc_chunks=False, steal_frac=0.5):
         t, w = heapq.heappop(ev)
         idle.add(w)
         feed(t)
-    return span
+    return (span, fin) if return_finish else span
 
 
 def main():
