@@ -61,6 +61,15 @@ Per-iteration traces (`GB_TRACE`, `scripts/analyze-trace.py`):
   1 sigma above the mean at G = 4/8, and at G = 64 the mean gap itself is the granularity effect (chunk 64 vs 39). The input order is
   fixed, so every run repeats the same arrangement and the trials look statistically very consistent; that says nothing about other
   inputs. (A permutation of the input calls on the real runtime would confirm this; not done yet.)
+* **No steal inefficiency in the real runs** (traces, chain, 64 workers): the idle core-seconds while an unstarted chunk still exists
+  are 0.005-0.007 of 6-20 total for both runtimes (0.1%); all idle time is end-game, after the last chunk has started. Idle totals
+  LF/DC: 8.1/6.4 (G = 1), 10.5/6.5 (G = 8), 20.7/14.0 (G = 64). So the span difference is how well each policy's start order packs
+  the last running chunks, not scheduler latency or overhead.
+* The model matches the sweep at all worker counts without any overhead (LF/DC, model vs measured): 32 workers 1.00-1.02 vs
+  0.99-1.04 for G <= 16; 64 workers 1.03-1.08 vs 0.97-1.12; 128 workers 1.04-1.10 vs 0.99-1.06 for G <= 8, 1.10 vs 1.22 at G = 16.
+  At 128 workers the longest iteration (235 ms) is 59% of the ideal span (0.397 s), so a few heavy iterations decide the span.
+  Over 24 random orderings of the costs at 128 workers LF/DC = 0.989 (G = 1), 0.995 (G = 4), 1.040 (G = 16), std 0.07-0.10, range
+  0.76-1.26: no systematic LF penalty at small G, a granularity penalty at larger G; the real ordering is ~1 sigma on LF's bad side.
 * The steal-share what-if (a thief taking 2/3 or 4/5 of the victim's chunks instead of half) makes LF 3-7% faster than DC on the
   real ordering, but **averaged over the 40 permutations it does not help** (LF80/DC 1.015 / 1.017 / 1.082 at G = 4 / 8 / 64, the
   same as stock LF), so it is not evidence for changing the steal policy.
